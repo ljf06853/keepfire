@@ -30,18 +30,36 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v npm >/dev/null 2>&1; then
+  echo "Error: npm is required."
+  exit 1
+fi
+
 npm install
 npm run build
-npm link >/dev/null 2>&1 || npm install -g .
 
-npx --yes keepfire init --link "$LINK_TARGETS"
+# Prefer local binary; npm link may need privileges
+if npm link >/dev/null 2>&1; then
+  echo "→ linked global command: keepfire"
+else
+  echo "→ npm link skipped (permissions). Use: node $INSTALL_DIR/dist/cli.js"
+fi
+
+CLI="node $INSTALL_DIR/dist/cli.js"
+if command -v keepfire >/dev/null 2>&1; then
+  CLI="keepfire"
+fi
+
+$CLI init --link "$LINK_TARGETS"
 
 echo ""
 echo "✅ Keepfire ready"
-echo "   CLI:     keepfire help"
+echo "   CLI:     $CLI help"
 echo "   Library: \$HOME/.keepfire"
 echo "   Skill:   linked for: $LINK_TARGETS"
+echo "   Docs:    $INSTALL_DIR/README.md"
+echo "   中文文档: $INSTALL_DIR/docs/README.zh-CN.md"
 echo ""
 echo "Try:"
-echo "  keepfire keep --title \"PR security review\" --intent security --prompt \"Review this diff for vulns...\" --yes"
-echo "  keepfire use \"review this PR for security\""
+echo "  $CLI import $INSTALL_DIR/examples/sample-recipes.json"
+echo "  $CLI use --apply \"review this PR for security\""

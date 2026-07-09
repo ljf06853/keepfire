@@ -54,10 +54,17 @@ test("save, search, use adaptation, improve, delete", () => {
   const adapted = renderAdaptedPrompt(card, "Check the payment webhook PR");
   assert.match(adapted, /payment webhook PR/);
   assert.match(adapted, /Keepfire recipe/);
+  assert.doesNotMatch(adapted, /\{\{\s*task\s*\}\}/);
+
+  const zhHits = searchRecipes("安全 审查 PR", { root, limit: 3 });
+  assert.ok(zhHits.length >= 1);
 
   const v2 = improveCard(
     card.id,
-    { note: "Add repro steps", why: ["prioritized vulns", "repro first"] },
+    {
+      note: "Add repro steps",
+      good_signals: ["prioritized vulns", "repro first"],
+    },
     root,
   );
   assert.equal(v2.version, 2);
@@ -67,6 +74,33 @@ test("save, search, use adaptation, improve, delete", () => {
   assert.equal(deleteCard(card.id, root), true);
   assert.equal(deleteCard(v2.id, root), true);
   assert.equal(listCards(root).length, 0);
+
+  fs.rmSync(root, { recursive: true, force: true });
+  delete process.env.KEEPFIRE_HOME;
+});
+
+test("listCards rebuilds when index missing entries", () => {
+  const root = tempRoot();
+  process.env.KEEPFIRE_HOME = root;
+
+  const card = saveDraft(
+    {
+      title: "tiny",
+      raw_prompt: "hello {{task}}",
+      intent: "other",
+    },
+    root,
+  );
+
+  // Corrupt index intentionally
+  fs.writeFileSync(
+    path.join(root, "index.json"),
+    JSON.stringify({ version: 1, updated_at: new Date().toISOString(), recipes: [] }, null, 2),
+  );
+
+  const listed = listCards(root);
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].id, card.id);
 
   fs.rmSync(root, { recursive: true, force: true });
   delete process.env.KEEPFIRE_HOME;

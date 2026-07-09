@@ -7,6 +7,12 @@
 </p>
 
 <p align="center">
+  <a href="docs/README.zh-CN.md"><strong>中文文档</strong></a>
+  ·
+  <a href="README.md">English</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/ljf06853/keepfire/stargazers"><img src="https://img.shields.io/github/stars/ljf06853/keepfire?style=for-the-badge&logo=github" alt="Stars" /></a>
   <a href="https://github.com/ljf06853/keepfire/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT" /></a>
   <a href="#install"><img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen?style=for-the-badge&logo=node.js&logoColor=white" alt="Node" /></a>
@@ -20,7 +26,8 @@
   <a href="#usage">Usage</a> ·
   <a href="#agent-skills">Skills</a> ·
   <a href="#how-it-works">How it works</a> ·
-  <a href="#roadmap">Roadmap</a>
+  <a href="#roadmap">Roadmap</a> ·
+  <a href="docs/README.zh-CN.md">中文文档</a>
 </p>
 
 ---
@@ -90,15 +97,18 @@ Review {{diff}} for authz / injection / untrusted input…
 curl -fsSL https://raw.githubusercontent.com/ljf06853/keepfire/main/install.sh | bash
 ```
 
-### Option B — npm / pnpm
+### Option B — from source (recommended for now)
 
 ```bash
-npm install -g keepfire
-# or from source:
 git clone https://github.com/ljf06853/keepfire.git
-cd keepfire && npm install && npm run build && npm link
+cd keepfire
+npm install
+npm run build
+npm link
 keepfire init --link claude,codex,gemini,agents,cursor
 ```
+
+> npm global package name is reserved as `keepfire`; until it is published, install from source or `install.sh`.
 
 ### Option C — skill only (no global CLI)
 
@@ -254,10 +264,13 @@ No account. No cloud. Override home with `KEEPFIRE_HOME`.
 
 ```text
 keepfire/
+├─ README.md             # English docs
+├─ docs/README.zh-CN.md  # 中文文档
 ├─ SKILL.md              # portable agent skill
 ├─ agents/openai.yaml    # Codex-oriented metadata
 ├─ src/                  # TypeScript CLI
 ├─ templates/card.md     # recipe template
+├─ examples/             # sample recipes
 ├─ install.sh            # one-line installer
 └─ assets/banner.svg
 ```
@@ -292,10 +305,12 @@ npx keepfire help
 - [x] CLI: keep / use / search / improve / export  
 - [x] Portable `SKILL.md` for multi-agent install  
 - [x] confirm / auto modes  
+- [x] Chinese documentation  
 - [ ] Richer semantic retrieval (optional local embeddings)  
 - [ ] Session transcript helpers (“keep the last winning user prompt”)  
 - [ ] Recipe packs you can publish (team / OSS)  
 - [ ] Browser companion for non-CLI chats  
+- [ ] Publish CLI to npm registry
 
 PRs welcome. Open an issue if your agent needs another install path.
 
@@ -317,4 +332,8 @@ PRs welcome. Open an issue if your agent needs another install path.
 
 <p align="center">
   <sub>If Keepfire saves even one elite prompt from oblivion, drop a ⭐ — sparks love oxygen.</sub>
+</p>
+
+<p align="center">
+  <a href="docs/README.zh-CN.md">中文文档 / Chinese docs</a>
 </p>

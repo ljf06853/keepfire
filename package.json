@@ -1,6 +1,6 @@
 {
   "name": "keepfire",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Capture coding prompt sparks. Compound them into reusable recipes. Recall and adapt them when the next task hits.",
   "type": "module",
   "bin": {
@@ -22,7 +22,9 @@
     "agent-skills",
     "prompt-engineering",
     "developer-tools",
-    "keepfire"
+    "keepfire",
+    "local-first",
+    "prompt-library"
   ],
   "author": "ljf06853",
   "license": "MIT",
@@ -42,7 +44,10 @@
     "SKILL.md",
     "templates",
     "agents",
+    "docs",
+    "examples",
     "install.sh",
+    "assets",
     "LICENSE",
     "README.md"
   ],

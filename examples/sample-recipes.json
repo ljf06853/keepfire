@@ -43,8 +43,8 @@
         "style comments before vulns"
       ],
       "stack_hints": ["ts", "node", "web"],
-      "trigger_phrases": ["security review", "审PR", "auth review"],
-      "tags": ["pr", "security"],
+      "trigger_phrases": ["security review", "审PR", "auth review", "安全审查", "安全评审"],
+      "tags": ["pr", "security", "安全"],
       "quality": 5,
       "source": "example"
     }

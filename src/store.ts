@@ -101,11 +101,36 @@ export function rebuildIndex(root = homeDir()): RecipeIndex {
 }
 
 export function listCards(root = homeDir()): RecipeCard[] {
+  ensureLibrary(root);
+  const dir = cardsDir(root);
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".md"));
   const index = readIndex(root);
+
+  // Rebuild if index is empty but cards exist, or counts diverge hard.
+  if (files.length !== index.recipes.length) {
+    rebuildIndex(root);
+  }
+
+  const fresh = readIndex(root);
   const cards: RecipeCard[] = [];
-  for (const entry of index.recipes) {
+  for (const entry of fresh.recipes) {
     const card = readCard(entry.id, root);
     if (card) cards.push(card);
+  }
+
+  // Fallback: scan files directly if index still empty
+  if (!cards.length && files.length) {
+    for (const file of files) {
+      try {
+        cards.push(
+          parseCardMarkdown(fs.readFileSync(path.join(dir, file), "utf8")),
+        );
+      } catch {
+        // skip
+      }
+    }
   }
   return cards;
 }
@@ -136,10 +161,7 @@ export function saveDraft(
     stack_hints: cleanList(draft.stack_hints).map((s) => s.toLowerCase()),
     trigger_phrases: cleanList(draft.trigger_phrases),
     tags: cleanList(draft.tags).map((s) => s.toLowerCase()),
-    quality:
-      draft.quality === undefined || draft.quality === null
-        ? null
-        : clamp(draft.quality, 1, 5),
+    quality: normalizeQuality(draft.quality),
     use_count: 0,
     source: draft.source?.trim() || readConfig(root).default_source,
     created_at: now,
@@ -237,7 +259,9 @@ export function improveCard(
       ? cleanList(draft.tags).map((s) => s.toLowerCase())
       : parent.tags,
     quality:
-      draft.quality === undefined ? parent.quality : draft.quality,
+      draft.quality === undefined
+        ? parent.quality
+        : normalizeQuality(draft.quality),
     use_count: 0,
     source: draft.source?.trim() || parent.source,
     created_at: now,
@@ -350,7 +374,10 @@ export function parseCardMarkdown(md: string): RecipeCard {
     stack_hints: asStringArray(fm.stack_hints),
     trigger_phrases: asStringArray(fm.trigger_phrases),
     tags: asStringArray(fm.tags),
-    quality: fm.quality === null || fm.quality === "null" ? null : Number(fm.quality),
+    quality:
+      fm.quality === null || fm.quality === "null"
+        ? null
+        : normalizeQuality(Number(fm.quality)),
     use_count: Number(fm.use_count || 0),
     source: String(fm.source || "agent"),
     created_at: String(fm.created_at || nowIso()),
@@ -418,6 +445,13 @@ function cleanList(v?: string[]): string[] {
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
+}
+
+function normalizeQuality(q: number | null | undefined): number | null {
+  if (q === undefined || q === null) return null;
+  const n = Number(q);
+  if (!Number.isFinite(n)) return null;
+  return clamp(n, 1, 5);
 }
 
 function nowIso(): string {

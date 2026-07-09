@@ -7,33 +7,54 @@ const INTENT_ALIASES: Record<string, Intent[]> = {
   feature: ["implement"],
   build: ["implement"],
   add: ["implement"],
+  实现: ["implement"],
+  开发: ["implement"],
+  功能: ["implement"],
   debug: ["debug"],
   fix: ["debug"],
   bug: ["debug"],
   error: ["debug"],
   crash: ["debug"],
+  调试: ["debug"],
+  修复: ["debug"],
+  报错: ["debug"],
   review: ["review"],
   pr: ["review", "git-pr"],
   audit: ["review", "security"],
+  审查: ["review"],
+  评审: ["review"],
+  代码审查: ["review"],
   refactor: ["refactor"],
   clean: ["refactor"],
+  重构: ["refactor"],
   test: ["test"],
   unit: ["test"],
   coverage: ["test"],
+  测试: ["test"],
+  单测: ["test"],
   explain: ["explain"],
   understand: ["explain"],
+  解释: ["explain"],
+  讲解: ["explain"],
   design: ["design"],
   architecture: ["design"],
+  设计: ["design"],
+  架构: ["design"],
   api: ["design", "implement"],
   commit: ["git-pr"],
   git: ["git-pr"],
+  提交: ["git-pr"],
   perf: ["perf"],
   performance: ["perf"],
   slow: ["perf"],
+  性能: ["perf"],
+  优化: ["perf"],
   security: ["security"],
   vuln: ["security"],
   xss: ["security"],
   injection: ["security"],
+  安全: ["security"],
+  漏洞: ["security"],
 };
 
 export function searchRecipes(
@@ -63,6 +84,10 @@ export function searchRecipes(
     }
 
     for (const t of tokens) {
+      // Skip lone CJK unigrams for field matching (too noisy); still used in intent guess.
+      const weakToken = t.length === 1 && /[\u4e00-\u9fff]/.test(t);
+      if (weakToken) continue;
+
       if (recipe.title.toLowerCase().includes(t)) {
         score += 3;
         reasons.push(`title:${t}`);
@@ -195,17 +220,44 @@ export function renderAdaptedPrompt(
 }
 
 function tokenize(s: string): string[] {
-  return s
+  const base = s
     .toLowerCase()
     .split(/[^a-z0-9_\u4e00-\u9fff+#.]+/i)
     .map((t) => t.trim())
-    .filter((t) => t.length > 1);
+    .filter((t) => t.length > 0);
+
+  const out = new Set<string>();
+  for (const t of base) {
+    if (t.length > 1) out.add(t);
+    // Expand CJK runs into unigrams/bigrams so "安全审查" hits aliases.
+    const cjk = t.match(/[\u4e00-\u9fff]+/g) || [];
+    for (const run of cjk) {
+      for (const ch of run) out.add(ch);
+      for (let i = 0; i < run.length - 1; i++) {
+        out.add(run.slice(i, i + 2));
+      }
+      if (run.length >= 3) {
+        for (let i = 0; i < run.length - 2; i++) {
+          out.add(run.slice(i, i + 3));
+        }
+      }
+    }
+  }
+  return [...out].filter((t) => t.length > 0);
 }
 
 function guessIntent(tokens: string[]): Intent | undefined {
   for (const t of tokens) {
     const hit = INTENT_ALIASES[t];
     if (hit?.[0]) return hit[0];
+  }
+  // Substring fallback for combined CJK phrases
+  for (const t of tokens) {
+    for (const [alias, intents] of Object.entries(INTENT_ALIASES)) {
+      if (alias.length >= 2 && (t.includes(alias) || alias.includes(t))) {
+        return intents[0];
+      }
+    }
   }
   return undefined;
 }

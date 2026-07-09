@@ -19,7 +19,7 @@ import { formatSearchHits, renderAdaptedPrompt, searchRecipes } from "./search.j
 import { homeDir, packageRoot, skillSourceDir } from "./paths.js";
 import type { CaptureMode, Intent, KeepDraft, UseMode } from "./types.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 function main(): void {
   const argv = process.argv.slice(2);
