@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "exported_at": "2026-07-09T00:00:00.000Z",
+  "recipes": [
+    {
+      "title": "Minimal fix debug loop",
+      "intent": "debug",
+      "raw_prompt": "Debug this failure. First reproduce with the smallest command/test. Then isolate root cause. Propose the smallest correct fix. Do not refactor unrelated code. Show verification steps.",
+      "skeleton": "Debug {{error_or_symptom}}.\n1) Reproduce with the smallest command/test\n2) Isolate root cause\n3) Minimal correct fix only\n4) Verification steps\n\nCurrent task:\n{{task}}",
+      "constraints": [
+        "no unrelated refactors",
+        "prefer failing test when practical"
+      ],
+      "output_contract": "repro → cause → patch plan → verify",
+      "good_signals": [
+        "forces reproduce-first",
+        "keeps diff small"
+      ],
+      "anti_patterns": [
+        "guessing fixes without repro"
+      ],
+      "stack_hints": ["any"],
+      "trigger_phrases": ["debug this", "最小修复", "reproduce first"],
+      "tags": ["debug", "minimal-diff"],
+      "quality": 5,
+      "source": "example"
+    },
+    {
+      "title": "PR security review",
+      "intent": "security",
+      "raw_prompt": "Review this PR for security issues. Prioritize authz, injection, SSRF, and secret leakage. Output Critical/Warning/Suggestion with file locations and concrete fixes. Skip pure style nits.",
+      "skeleton": "Security-review {{diff_or_files}}.\nPrioritize: authz, injection, SSRF, secret leakage.\nOutput: Critical/Warning/Suggestion with locations + fixes.\nSkip pure style nits.\n\nCurrent task:\n{{task}}",
+      "constraints": [
+        "actionable findings only",
+        "no drive-by refactors"
+      ],
+      "output_contract": "severity-ranked findings",
+      "good_signals": [
+        "prioritized threats",
+        "concrete fixes"
+      ],
+      "anti_patterns": [
+        "style comments before vulns"
+      ],
+      "stack_hints": ["ts", "node", "web"],
+      "trigger_phrases": ["security review", "审PR", "auth review"],
+      "tags": ["pr", "security"],
+      "quality": 5,
+      "source": "example"
+    }
+  ]
+}

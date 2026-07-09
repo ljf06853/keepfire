@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-label="Keepfire">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#140b08"/>
+      <stop offset="50%" stop-color="#1c0f0a"/>
+      <stop offset="100%" stop-color="#0b0b10"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="45%" stop-color="#ff6a00"/>
+      <stop offset="100%" stop-color="#ff3d00"/>
+    </linearGradient>
+    <linearGradient id="text" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffe6c7"/>
+      <stop offset="100%" stop-color="#ff9f43"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="320" fill="url(#bg)"/>
+
+  <!-- soft embers -->
+  <circle cx="180" cy="70" r="2" fill="#ffb347" opacity="0.7"/>
+  <circle cx="220" cy="120" r="1.5" fill="#ff6a00" opacity="0.6"/>
+  <circle cx="980" cy="80" r="2" fill="#ff9f43" opacity="0.5"/>
+  <circle cx="1040" cy="140" r="1.5" fill="#ff3d00" opacity="0.55"/>
+  <circle cx="900" cy="50" r="1.2" fill="#ffe6c7" opacity="0.45"/>
+
+  <!-- flame mark -->
+  <g transform="translate(120,55)" filter="url(#glow)">
+    <path d="M70 190c40-10 62-48 62-92 0-40-18-70-40-96 8 34-10 48-10 48S72 18 78 0C38 28 8 72 8 118c0 52 30 82 62 72z" fill="url(#flame)"/>
+    <path d="M68 188c22-6 36-30 36-58 0-24-10-44-24-62 4 20-8 30-8 30s-8-20-6-36c-22 18-38 44-38 72 0 30 16 48 40 54z" fill="#ffd27a" opacity="0.9"/>
+    <path d="M66 180c10-4 16-16 16-30 0-12-4-22-12-32 2 12-4 16-4 16s-4-10-2-18c-12 10-20 24-20 38 0 16 8 24 22 26z" fill="#fff3d1" opacity="0.95"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="300" y="150" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="84" font-weight="800" fill="url(#text)" letter-spacing="-2">keepfire</text>
+  <text x="305" y="200" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="28" font-weight="500" fill="#c9b2a0">Capture coding sparks. Compound your craft.</text>
+  <text x="305" y="245" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="18" fill="#8a7466">CLI · Agent Skill · Local-first recipe library</text>
+</svg>

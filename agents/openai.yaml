@@ -1,0 +1,11 @@
+# Codex / OpenAI agent metadata (optional extension)
+interface:
+  display_name: "Keepfire"
+  short_description: "Capture coding prompt sparks and compound them into reusable recipes."
+policy:
+  # Keepfire is local-first and only writes when the user captures a spark.
+  allow_implicit_invocation: true
+dependencies:
+  notes:
+    - "Node.js 18+ recommended for the keepfire CLI"
+    - "Library path: ~/.keepfire (KEEPFIRE_HOME override)"

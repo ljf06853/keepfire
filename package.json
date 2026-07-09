@@ -1,0 +1,54 @@
+{
+  "name": "keepfire",
+  "version": "0.1.0",
+  "description": "Capture coding prompt sparks. Compound them into reusable recipes. Recall and adapt them when the next task hits.",
+  "type": "module",
+  "bin": {
+    "keepfire": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "keepfire": "tsx src/cli.ts",
+    "test": "tsx --test test/store-search.test.ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "prompt",
+    "claude-code",
+    "codex",
+    "skills",
+    "agent-skills",
+    "prompt-engineering",
+    "developer-tools",
+    "keepfire"
+  ],
+  "author": "ljf06853",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ljf06853/keepfire.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ljf06853/keepfire/issues"
+  },
+  "homepage": "https://github.com/ljf06853/keepfire#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "SKILL.md",
+    "templates",
+    "agents",
+    "install.sh",
+    "LICENSE",
+    "README.md"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
