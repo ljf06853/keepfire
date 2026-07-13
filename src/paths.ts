@@ -18,6 +18,10 @@ export function configPath(root = homeDir()): string {
   return path.join(root, "config.json");
 }
 
+export function journalPath(root = homeDir()): string {
+  return path.join(root, "journal.jsonl");
+}
+
 export function packageRoot(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
   // dist/ -> package root; src/ during tsx dev -> package root

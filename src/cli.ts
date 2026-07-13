@@ -4,6 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import {
+  appendJournal,
   bumpUse,
   deleteCard,
   ensureLibrary,
@@ -11,11 +12,18 @@ import {
   listCards,
   readCard,
   readConfig,
+  readJournal,
   rebuildIndex,
+  resolveCardId,
   saveDraft,
   writeConfig,
 } from "./store.js";
-import { formatSearchHits, renderAdaptedPrompt, searchRecipes } from "./search.js";
+import {
+  formatSearchHits,
+  renderAdaptedPrompt,
+  scoreToConfidence,
+  searchRecipes,
+} from "./search.js";
 import { homeDir, packageRoot, skillSourceDir } from "./paths.js";
 import type { CaptureMode, Intent, KeepDraft, UseMode } from "./types.js";
 
@@ -60,6 +68,12 @@ function main(): void {
         break;
       case "improve":
         cmdImprove(parseFlags(argv.slice(1)));
+        break;
+      case "journal":
+        cmdJournal(parseFlags(argv.slice(1)));
+        break;
+      case "harvest":
+        cmdHarvest(parseFlags(argv.slice(1)));
         break;
       case "mode":
         cmdMode(parseFlags(argv.slice(1)));
@@ -121,19 +135,28 @@ Commands:
         --quality 1-5
         --source claude-code
         --notes "..."
+        --prompt-file F       Read the raw prompt from a file (or pipe via stdin)
         --json                Print full JSON card
         --yes                 Skip confirm-mode guard (force save)
 
-  use <query...> [--id ID] [--top K] [--stack ts] [--intent review] [--json]
+  use <query...> [--id ID] [--pick N] [--top K] [--stack ts] [--intent review] [--json]
       Recall recipes and print an adapted prompt for the agent
+      --id accepts any unique id fragment (e.g. --id 4zri)
+      --pick N applies the Nth candidate from the listed results
 
   search <query...> [--top K] [--intent I] [--stack S]
   list [--intent I] [--stack S]
-  show <id>
-  delete <id> [--yes]
-  improve <id> --note "..." [--prompt P] [--skeleton S] ...
+  show <id-or-fragment>
+  delete <id-or-fragment> [--yes]
+  improve <id-or-fragment> --note "..." [--prompt P] [--skeleton S] ...
+  journal --from-hook | --text "..." | --list [--limit N]
+      Append prompts to the local journal (~/.keepfire/journal.jsonl)
+  harvest [--limit N] [--days D] [--json]
+      Mine the journal for prompts worth keeping as recipes
   mode capture confirm|auto
   mode use always_ask|ask_if_low_confidence|auto
+  mode suggest on|off
+  mode threshold 0.75
   config
   export [file]
   import <file>
@@ -164,6 +187,8 @@ const BOOL_FLAGS = new Set([
   "json",
   "apply",
   "help",
+  "from-hook",
+  "list",
 ]);
 
 function parseFlags(argv: string[]): Flags {
@@ -286,9 +311,15 @@ function cmdKeep(flags: Flags): void {
   ensureLibrary();
   const cfg = readConfig();
   const titleRaw = str(flags, "title");
-  const promptRaw = str(flags, "prompt") || str(flags, "raw") || readStdinIfPiped();
+  const promptRaw =
+    str(flags, "prompt") ||
+    str(flags, "raw") ||
+    readFileFlag(flags, "prompt-file") ||
+    readStdinIfPiped();
   if (!titleRaw || !promptRaw) {
-    throw new Error("keep requires --title and --prompt (or stdin prompt)");
+    throw new Error(
+      "keep requires --title and --prompt (or --prompt-file, or stdin prompt)",
+    );
   }
   const title: string = titleRaw;
   const prompt: string = promptRaw;
@@ -351,10 +382,11 @@ function cmdUse(flags: Flags): void {
   const query = flags._.join(" ").trim() || str(flags, "query") || "";
 
   if (id) {
-    const card = readCard(id);
+    const resolved = resolveCardId(id);
+    const card = readCard(resolved);
     if (!card) throw new Error(`Recipe not found: ${id}`);
     const task = query || card.title;
-    bumpUse(id);
+    bumpUse(resolved);
     const adapted = renderAdaptedPrompt(card, task);
     if (bool(flags, "json")) {
       console.log(JSON.stringify({ selected: card, adapted }, null, 2));
@@ -373,8 +405,27 @@ function cmdUse(flags: Flags): void {
     return;
   }
 
+  const pickRaw = str(flags, "pick");
+  if (pickRaw) {
+    const n = Number(pickRaw);
+    if (!Number.isInteger(n) || n < 1 || n > hits.length) {
+      throw new Error(`--pick must be an integer 1..${hits.length}`);
+    }
+    const chosen = hits[n - 1];
+    bumpUse(chosen.recipe.id);
+    const adapted = renderAdaptedPrompt(chosen.recipe, query);
+    if (bool(flags, "json")) {
+      console.log(JSON.stringify({ selected: chosen.recipe, adapted }, null, 2));
+      return;
+    }
+    console.log(`## Applying: ${chosen.recipe.title} [${chosen.recipe.id}]`);
+    console.log("");
+    console.log(adapted);
+    return;
+  }
+
   const best = hits[0];
-  const confidence = normalizeConfidence(best.score);
+  const confidence = scoreToConfidence(best.score);
 
   if (bool(flags, "json")) {
     console.log(
@@ -412,9 +463,9 @@ function cmdUse(flags: Flags): void {
       `Top match confidence=${confidence.toFixed(2)} (threshold=${cfg.auto_apply_threshold}).`,
     );
     console.log(
-      `Re-run with: keepfire use --id ${best.recipe.id} ${JSON.stringify(query)}`,
+      `Pick one with: keepfire use --pick 1 ${JSON.stringify(query)}`,
     );
-    console.log("Or force: keepfire use --apply " + JSON.stringify(query));
+    console.log("Or force the top match: keepfire use --apply " + JSON.stringify(query));
     return;
   }
 
@@ -422,11 +473,6 @@ function cmdUse(flags: Flags): void {
   console.log(`## Applying: ${best.recipe.title} [${best.recipe.id}]`);
   console.log("");
   console.log(renderAdaptedPrompt(best.recipe, query));
-}
-
-function normalizeConfidence(score: number): number {
-  // map rough score to 0..1 for thresholding
-  return Math.max(0, Math.min(1, score / 12));
 }
 
 function cmdSearch(flags: Flags): void {
@@ -463,8 +509,9 @@ function cmdList(flags: Flags): void {
 }
 
 function cmdShow(flags: Flags): void {
-  const id = flags._[0] || str(flags, "id");
-  if (!id) throw new Error("show requires an id");
+  const idInput = flags._[0] || str(flags, "id");
+  if (!idInput) throw new Error("show requires an id");
+  const id = resolveCardId(idInput);
   const card = readCard(id);
   if (!card) throw new Error(`Recipe not found: ${id}`);
   if (bool(flags, "json")) {
@@ -475,18 +522,20 @@ function cmdShow(flags: Flags): void {
 }
 
 function cmdDelete(flags: Flags): void {
-  const id = flags._[0] || str(flags, "id");
-  if (!id) throw new Error("delete requires an id");
+  const idInput = flags._[0] || str(flags, "id");
+  if (!idInput) throw new Error("delete requires an id");
   if (!bool(flags, "yes")) {
     throw new Error("Refusing to delete without --yes");
   }
+  const id = resolveCardId(idInput);
   const ok = deleteCard(id);
   console.log(ok ? `Deleted ${id}` : `Not found: ${id}`);
 }
 
 function cmdImprove(flags: Flags): void {
-  const id = flags._[0] || str(flags, "id");
-  if (!id) throw new Error("improve requires an id");
+  const idInput = flags._[0] || str(flags, "id");
+  if (!idInput) throw new Error("improve requires an id");
+  const id = resolveCardId(idInput);
   const child = improveCard(id, {
     title: str(flags, "title"),
     raw_prompt: str(flags, "prompt"),
@@ -520,6 +569,7 @@ function cmdMode(flags: Flags): void {
     const cfg = readConfig();
     console.log(`capture_mode=${cfg.capture_mode}`);
     console.log(`use_mode=${cfg.use_mode}`);
+    console.log(`auto_suggest=${cfg.auto_suggest}`);
     console.log(`auto_apply_threshold=${cfg.auto_apply_threshold}`);
     return;
   }
@@ -543,6 +593,14 @@ function cmdMode(flags: Flags): void {
     console.log(`use_mode=${value}`);
     return;
   }
+  if (which === "suggest") {
+    if (value !== "on" && value !== "off") {
+      throw new Error("suggest mode must be on|off");
+    }
+    writeConfig({ auto_suggest: value === "on" });
+    console.log(`auto_suggest=${value === "on"}`);
+    return;
+  }
   if (which === "threshold") {
     const n = Number(value);
     if (!(n >= 0 && n <= 1)) throw new Error("threshold must be 0..1");
@@ -550,7 +608,9 @@ function cmdMode(flags: Flags): void {
     console.log(`auto_apply_threshold=${n}`);
     return;
   }
-  throw new Error("Usage: keepfire mode capture confirm|auto | mode use ... | mode threshold 0.88");
+  throw new Error(
+    "Usage: keepfire mode capture confirm|auto | mode use ... | mode suggest on|off | mode threshold 0.75",
+  );
 }
 
 function cmdConfig(): void {
@@ -604,6 +664,145 @@ function cmdImport(flags: Flags): void {
     n++;
   }
   console.log(`Imported ${n} recipes.`);
+}
+
+const JOURNAL_MIN_LENGTH = 12;
+const JOURNAL_MAX_TEXT = 4000;
+const JOURNAL_LIST_DEFAULT_LIMIT = 20;
+
+function cmdJournal(flags: Flags): void {
+  if (bool(flags, "from-hook")) {
+    // Fed by an agent hook (e.g. Claude Code UserPromptSubmit). Must never
+    // fail loudly or block the host agent's prompt flow.
+    try {
+      const raw = readStdinIfPiped();
+      if (!raw) return;
+      const payload = JSON.parse(raw) as { prompt?: string; cwd?: string };
+      const text = (payload.prompt || "").trim();
+      if (!isJournalWorthy(text)) return;
+      appendJournal({
+        ts: new Date().toISOString(),
+        cwd: payload.cwd,
+        text: text.slice(0, JOURNAL_MAX_TEXT),
+      });
+    } catch {
+      // swallow everything: a broken journal entry is never worth a broken prompt
+    }
+    return;
+  }
+
+  const text = str(flags, "text");
+  if (text) {
+    if (!isJournalWorthy(text.trim())) {
+      throw new Error(
+        `journal --text needs a non-command prompt of at least ${JOURNAL_MIN_LENGTH} chars`,
+      );
+    }
+    appendJournal({
+      ts: new Date().toISOString(),
+      cwd: process.cwd(),
+      text: text.trim().slice(0, JOURNAL_MAX_TEXT),
+    });
+    console.log("Journaled.");
+    return;
+  }
+
+  if (bool(flags, "list")) {
+    const limit = Number(str(flags, "limit") || JOURNAL_LIST_DEFAULT_LIMIT);
+    const entries = readJournal().slice(-limit).reverse();
+    if (!entries.length) {
+      console.log("Journal is empty.");
+      return;
+    }
+    for (const e of entries) {
+      console.log(`[${e.ts.slice(0, 16)}] ${singleLine(e.text, 100)}`);
+    }
+    return;
+  }
+
+  throw new Error("journal requires --from-hook, --text \"...\", or --list");
+}
+
+const HARVEST_MIN_LENGTH = 40;
+const HARVEST_DEFAULT_LIMIT = 20;
+const HARVEST_DEFAULT_DAYS = 14;
+const HARVEST_COVERED_CONFIDENCE = 0.75;
+
+function cmdHarvest(flags: Flags): void {
+  ensureLibrary();
+  const limit = Number(str(flags, "limit") || HARVEST_DEFAULT_LIMIT);
+  const days = Number(str(flags, "days") || HARVEST_DEFAULT_DAYS);
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  const seen = new Set<string>();
+  const candidates = readJournal()
+    .filter((e) => new Date(e.ts).getTime() >= cutoff)
+    .filter((e) => e.text.length >= HARVEST_MIN_LENGTH)
+    .filter((e) => {
+      if (seen.has(e.text)) return false;
+      seen.add(e.text);
+      return true;
+    })
+    .reverse()
+    .slice(0, limit);
+
+  if (!candidates.length) {
+    console.log(
+      `No harvest candidates in the last ${days}d (min ${HARVEST_MIN_LENGTH} chars).`,
+    );
+    console.log(
+      "Prompts land in the journal via `keepfire journal --from-hook` (agent hook) or --text.",
+    );
+    return;
+  }
+
+  const rows = candidates.map((e, i) => {
+    const top = searchRecipes(e.text, { limit: 1 })[0];
+    const covered =
+      top && scoreToConfidence(top.score) >= HARVEST_COVERED_CONFIDENCE;
+    return {
+      n: i + 1,
+      ts: e.ts.slice(0, 10),
+      status: covered ? `covered-by:${top.recipe.id}` : "NEW",
+      cwd: e.cwd,
+      text: e.text,
+    };
+  });
+
+  if (bool(flags, "json")) {
+    console.log(JSON.stringify(rows, null, 2));
+    return;
+  }
+
+  console.log(`## Harvest candidates (last ${days}d)`);
+  for (const r of rows) {
+    console.log(`${r.n}. [${r.ts}] ${r.status}`);
+    console.log(`   ${singleLine(r.text, 120)}`);
+  }
+  console.log("");
+  console.log(
+    'Keep one with: keepfire keep --title "..." --prompt-file <file>  (or /keep in your agent)',
+  );
+}
+
+function isJournalWorthy(text: string): boolean {
+  if (!text || text.length < JOURNAL_MIN_LENGTH) return false;
+  if (text.startsWith("/")) return false; // slash commands are never sparks
+  return true;
+}
+
+function singleLine(s: string, max: number): string {
+  const flat = s.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+function readFileFlag(flags: Flags, key: string): string | undefined {
+  const file = str(flags, key);
+  if (!file) return undefined;
+  if (!fs.existsSync(file)) {
+    throw new Error(`--${key}: file not found: ${file}`);
+  }
+  return fs.readFileSync(file, "utf8").trim() || undefined;
 }
 
 function cmdStats(): void {

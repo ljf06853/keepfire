@@ -10,6 +10,11 @@ description: >
 
 # Keepfire — Compound Your Coding Sparks
 
+> **Claude Code users:** prefer the plugin instead of this single-file skill — it installs
+> four granular auto-triggering skills plus the journal hook:
+> `/plugin marketplace add ljf06853/keepfire` then `/plugin install keepfire@keepfire`.
+> This file remains the surface for Codex / Gemini CLI / other Agent-Skills-standard tools.
+
 You are running the **keepfire** skill: a personal coding-prompt recipe system.
 
 Sparks (great prompts) should not die in chat history.
@@ -30,7 +35,8 @@ Read `~/.keepfire/config.json` if present:
 
 - `capture_mode`: `confirm` (default) | `auto`
 - `use_mode`: `always_ask` | `ask_if_low_confidence` (default) | `auto`
-- `auto_apply_threshold`: number 0..1 (default `0.88`)
+- `auto_suggest`: `true` (default) | `false` — proactive spark detection (see below)
+- `auto_apply_threshold`: number 0..1 (default `0.75`)
 
 If config is missing, assume defaults above.
 
@@ -41,13 +47,30 @@ If config is missing, assume defaults above.
 | "收藏/keep/save this prompt" | Capture flow (`/keep`) |
 | "用我以前那种方式 /use ..." | Recall + adapt flow (`/use`) |
 | "列出/搜索配方 /garden /list" | Browse library |
+| "挖掘/回顾最近的 prompt /harvest" | Mine the journal (`/harvest`) |
 | "改成 auto/confirm" | Update capture/use mode |
 | "这次更好，升级配方" | Improve version |
+
+## Proactive spark detection (auto_suggest)
+
+When `auto_suggest` is not `false`, watch the session for sparks and **suggest** keeping them.
+Signals that a spark just happened:
+
+- The user praises a result tied to a specific prompt ("perfect", "exactly", "完美", "就是这样", "这个好").
+- A prompt was refined 2+ times and the final version clearly produced the desired result.
+- A prompt encodes a reusable **process** (e.g. "reproduce → smallest failing test → minimal fix → verify"), not one-off content.
+
+Rules:
+
+- Suggest with one short line, e.g. `🔥 这条 prompt 很出彩，要 keep 吗？` — never interrupt mid-task; wait for a natural pause.
+- At most one suggestion per session unless the user engages.
+- **Never save without the user's yes.** `auto_suggest` automates recognition, not persistence; saving still follows capture_mode.
+- If the user declines, drop it silently. Do not re-suggest the same prompt.
 
 ## /keep — capture a spark
 
 ### When to capture
-Only when the user explicitly wants to keep something, unless they set capture_mode to auto **and** they still issued a keep intent.
+When the user explicitly asks to keep something, or when they accept a proactive suggestion (above). Never save otherwise.
 
 ### What to extract
 From the conversation, identify:
@@ -130,8 +153,11 @@ npx --yes keepfire search "user task keywords" --top 5
 6. Apply with:
 
 ```bash
-npx --yes keepfire use --id <id> --apply "current task text"
+npx --yes keepfire use --id <id> "current task text"
 ```
+
+`--id` accepts any unique id fragment (e.g. `--id 4zri`). After listing candidates you can
+also apply the Nth one directly: `keepfire use --pick 2 "current task text"`.
 
 Or use the CLI output as the working instruction and execute the coding task accordingly.
 
@@ -156,9 +182,28 @@ npx --yes keepfire show <id>
 npx --yes keepfire delete <id> --yes
 npx --yes keepfire mode capture auto
 npx --yes keepfire mode use ask_if_low_confidence
+npx --yes keepfire mode suggest on
 npx --yes keepfire stats
 npx --yes keepfire export
 ```
+
+## /harvest — mine the journal for missed sparks
+
+If the user's environment journals prompts (via a `UserPromptSubmit` hook running
+`keepfire journal --from-hook`, or manual `keepfire journal --text "..."`), old sparks
+can be recovered retroactively:
+
+1. Run:
+
+```bash
+npx --yes keepfire harvest --limit 20
+```
+
+2. Entries marked `NEW` have no similar recipe yet; `covered-by:<id>` means one exists.
+3. Review the `NEW` entries and propose the 1–3 strongest as draft cards
+   (same quality bar as `/keep`: encode process, not one-off content).
+4. On approval, run the normal `/keep` capture flow for each.
+5. Never bulk-save the whole journal — harvest is curation, not import.
 
 ## /keep improve — evolve a recipe
 

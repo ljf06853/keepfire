@@ -10,7 +10,7 @@
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "keepfire": "tsx src/cli.ts",
-    "test": "tsx --test test/store-search.test.ts",
+    "test": "tsx --test test/*.test.ts",
     "prepare": "npm run build"
   },
   "keywords": [
@@ -42,6 +42,9 @@
   "files": [
     "dist",
     "SKILL.md",
+    ".claude-plugin",
+    "skills",
+    "hooks",
     "templates",
     "agents",
     "docs",

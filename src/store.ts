@@ -5,9 +5,11 @@ import {
   configPath,
   homeDir,
   indexPath,
+  journalPath,
 } from "./paths.js";
 import type {
   IndexEntry,
+  JournalEntry,
   KeepDraft,
   KeepfireConfig,
   RecipeCard,
@@ -23,7 +25,8 @@ export function defaultConfig(): KeepfireConfig {
     version: CONFIG_VERSION,
     capture_mode: "confirm",
     use_mode: "ask_if_low_confidence",
-    auto_apply_threshold: 0.88,
+    auto_suggest: true,
+    auto_apply_threshold: 0.75,
     recall_top_k: 3,
     default_source: "agent",
     created_at: now,
@@ -139,6 +142,53 @@ export function readCard(id: string, root = homeDir()): RecipeCard | null {
   const file = cardFilePath(id, root);
   if (!fs.existsSync(file)) return null;
   return parseCardMarkdown(fs.readFileSync(file, "utf8"));
+}
+
+export function resolveCardId(fragment: string, root = homeDir()): string {
+  const wanted = fragment.trim();
+  if (!wanted) throw new Error("Recipe id required");
+  if (fs.existsSync(cardFilePath(wanted, root))) return wanted;
+
+  ensureLibrary(root);
+  const ids = fs
+    .readdirSync(cardsDir(root))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => f.slice(0, -3));
+  const needle = wanted.toLowerCase();
+  const matches = ids.filter((id) => id.toLowerCase().includes(needle));
+
+  if (matches.length === 1) return matches[0];
+  if (matches.length === 0) throw new Error(`Recipe not found: ${wanted}`);
+  throw new Error(
+    `Ambiguous id "${wanted}" matches ${matches.length} recipes:\n` +
+      matches.map((m) => `  - ${m}`).join("\n"),
+  );
+}
+
+export function appendJournal(
+  entry: JournalEntry,
+  root = homeDir(),
+): void {
+  ensureLibrary(root);
+  fs.appendFileSync(journalPath(root), JSON.stringify(entry) + "\n", "utf8");
+}
+
+export function readJournal(root = homeDir()): JournalEntry[] {
+  const file = journalPath(root);
+  if (!fs.existsSync(file)) return [];
+  const out: JournalEntry[] = [];
+  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try {
+      const parsed = JSON.parse(line) as Partial<JournalEntry>;
+      if (typeof parsed.ts === "string" && typeof parsed.text === "string") {
+        out.push({ ts: parsed.ts, cwd: parsed.cwd, text: parsed.text });
+      }
+    } catch {
+      // skip corrupt lines; the journal is an append-only best-effort log
+    }
+  }
+  return out;
 }
 
 export function saveDraft(

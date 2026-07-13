@@ -1,0 +1,18 @@
+{
+  "name": "keepfire",
+  "description": "Capture your best coding prompts as reusable recipes. Recall and adapt them on the next similar task.",
+  "version": "0.1.1",
+  "author": {
+    "name": "ljf06853"
+  },
+  "homepage": "https://github.com/ljf06853/keepfire",
+  "repository": "https://github.com/ljf06853/keepfire",
+  "license": "MIT",
+  "keywords": [
+    "prompts",
+    "recipes",
+    "prompt-engineering",
+    "local-first",
+    "workflows"
+  ]
+}

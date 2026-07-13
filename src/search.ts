@@ -148,6 +148,15 @@ export function searchRecipes(
     .slice(0, opts.limit ?? 10);
 }
 
+// Saturating map from raw search score to 0..1 confidence.
+// Calibrated so a strong multi-signal match (trigger + intent + stack,
+// score ~8-12) lands at 0.86-0.95, while a loose single-signal match
+// (score ~3-4) stays around 0.5-0.6 and keeps asking the user.
+export function scoreToConfidence(score: number): number {
+  if (score <= 0) return 0;
+  return Math.min(1, 1 - Math.exp(-score / 4));
+}
+
 export function formatSearchHits(hits: SearchHit[]): string {
   if (!hits.length) return "No matching recipes.";
   return hits

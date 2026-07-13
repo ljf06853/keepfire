@@ -18,11 +18,18 @@ export interface KeepfireConfig {
   version: number;
   capture_mode: CaptureMode;
   use_mode: UseMode;
+  auto_suggest: boolean;
   auto_apply_threshold: number;
   recall_top_k: number;
   default_source: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface JournalEntry {
+  ts: string;
+  cwd?: string;
+  text: string;
 }
 
 export interface RecipeCard {
